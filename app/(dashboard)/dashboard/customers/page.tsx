@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Customer } from '@/types';
 import Link from 'next/link';
 

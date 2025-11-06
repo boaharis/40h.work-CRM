@@ -4,10 +4,18 @@ import { Tenant } from '@/types';
 
 // Extract tenant from hostname
 export const getTenantFromHostname = (hostname: string): string | null => {
+  console.log('[Tenant] Extracting tenant from hostname:', hostname);
+
   // Handle localhost development
-  if (hostname.includes('localhost')) {
-    // For development, you can use a query parameter or default tenant
+  if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+    console.log('[Tenant] Development environment detected, using demo tenant');
     return 'demo'; // Default tenant for development
+  }
+
+  // Handle Firebase Hosting domains (web.app and firebaseapp.com)
+  if (hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')) {
+    console.log('[Tenant] Firebase Hosting domain detected, using demo tenant');
+    return 'demo'; // Default tenant for Firebase Hosting
   }
 
   // Check for custom domain
@@ -19,10 +27,13 @@ export const getTenantFromHostname = (hostname: string): string | null => {
 
   if (parts.length >= 3) {
     // Format: subdomain.platform.com
-    return parts[0];
+    const subdomain = parts[0];
+    console.log('[Tenant] Extracted subdomain:', subdomain);
+    return subdomain;
   }
 
-  return null;
+  console.log('[Tenant] No tenant found, using default');
+  return 'demo'; // Fallback to demo
 };
 
 // Get tenant configuration

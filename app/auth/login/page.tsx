@@ -19,9 +19,12 @@ export default function LoginPage() {
     setError('');
 
     try {
+      console.log('[Login] Email login attempt');
       await signInWithEmail(email, password);
+      console.log('[Login] Email login successful');
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('[Login] Email login error:', err);
       setError(err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
@@ -29,8 +32,13 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
+    console.log('[Login] Google login clicked');
+    console.log('[Login] Tenant state:', tenant);
+
     if (!tenant) {
-      setError('Tenant configuration not loaded');
+      const errorMsg = 'Tenant configuration not loaded. Please refresh the page.';
+      console.error('[Login] Error:', errorMsg);
+      setError(errorMsg);
       return;
     }
 
@@ -38,9 +46,14 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signInWithGoogle(tenant.id);
+      console.log('[Login] Calling signInWithGoogle for tenant:', tenant.id);
+      const user = await signInWithGoogle(tenant.id);
+      console.log('[Login] Google sign in successful:', user);
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('[Login] Google sign in error:', err);
+      console.error('[Login] Error message:', err.message);
+      console.error('[Login] Error code:', err.code);
       setError(err.message || 'Failed to sign in with Google');
     } finally {
       setLoading(false);

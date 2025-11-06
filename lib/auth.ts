@@ -82,60 +82,74 @@ export const signUpWithEmail = async (
 
 // Sign in with Google
 export const signInWithGoogle = async (tenantId: string): Promise<User> => {
-  const userCredential = await signInWithPopup(auth, googleProvider);
+  console.log('[Auth] signInWithGoogle called for tenant:', tenantId);
 
-  // Check if user exists in tenant
-  const userDocRef = doc(db, `tenants/${tenantId}/users`, userCredential.user.uid);
-  const userDoc = await getDoc(userDocRef);
+  try {
+    console.log('[Auth] Opening Google popup...');
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    console.log('[Auth] Google popup successful, user:', userCredential.user.email);
 
-  if (!userDoc.exists()) {
-    // Create new user
-    const userData: Omit<User, 'id'> = {
-      tenantId,
-      email: userCredential.user.email!,
-      displayName: userCredential.user.displayName || userCredential.user.email!,
-      photoURL: userCredential.user.photoURL || undefined,
-      role: 'sales',
-      permissions: ['view_dashboard', 'view_customers', 'edit_customers', 'view_leads', 'edit_leads'],
-      status: 'active',
-      createdAt: serverTimestamp() as any,
-      updatedAt: serverTimestamp() as any,
-      settings: {
-        notifications: {
-          email: true,
-          sms: true,
-          push: true,
-          inApp: true,
-        },
-        language: 'en',
-        timezone: 'UTC',
-      },
-    };
+    // Check if user exists in tenant
+    const userDocRef = doc(db, `tenants/${tenantId}/users`, userCredential.user.uid);
+    console.log('[Auth] Checking if user exists in tenant...');
+    const userDoc = await getDoc(userDocRef);
 
-    await setDoc(userDocRef, userData);
-
-    // Set custom claims via Cloud Function
-    try {
-      const { getFunctions, httpsCallable } = await import('firebase/functions');
-      const functions = getFunctions();
-      const setCustomClaimsFunc = httpsCallable(functions, 'setCustomClaims');
-      await setCustomClaimsFunc({
-        uid: userCredential.user.uid,
+    if (!userDoc.exists()) {
+      console.log('[Auth] User does not exist, creating new user...');
+      // Create new user
+      const userData: Omit<User, 'id'> = {
         tenantId,
+        email: userCredential.user.email!,
+        displayName: userCredential.user.displayName || userCredential.user.email!,
+        photoURL: userCredential.user.photoURL || undefined,
         role: 'sales',
-        permissions: userData.permissions,
-      });
-    } catch (error) {
-      console.error('Error setting custom claims:', error);
+        permissions: ['view_dashboard', 'view_customers', 'edit_customers', 'view_leads', 'edit_leads'],
+        status: 'active',
+        createdAt: serverTimestamp() as any,
+        updatedAt: serverTimestamp() as any,
+        settings: {
+          notifications: {
+            email: true,
+            sms: true,
+            push: true,
+            inApp: true,
+          },
+          language: 'en',
+          timezone: 'UTC',
+        },
+      };
+
+      await setDoc(userDocRef, userData);
+      console.log('[Auth] User created successfully');
+
+      // Set custom claims via Cloud Function
+      try {
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const functions = getFunctions();
+        const setCustomClaimsFunc = httpsCallable(functions, 'setCustomClaims');
+        await setCustomClaimsFunc({
+          uid: userCredential.user.uid,
+          tenantId,
+          role: 'sales',
+          permissions: userData.permissions,
+        });
+        console.log('[Auth] Custom claims set successfully');
+      } catch (error) {
+        console.error('[Auth] Error setting custom claims:', error);
+      }
+
+      return {
+        id: userCredential.user.uid,
+        ...userData,
+      } as User;
     }
 
-    return {
-      id: userCredential.user.uid,
-      ...userData,
-    } as User;
+    console.log('[Auth] User exists, fetching user data...');
+    return await getUserData(userCredential.user.uid);
+  } catch (error) {
+    console.error('[Auth] signInWithGoogle error:', error);
+    throw error;
   }
-
-  return await getUserData(userCredential.user.uid);
 };
 
 // Phone authentication setup

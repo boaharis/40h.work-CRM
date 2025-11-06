@@ -22,11 +22,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const loadTenant = async () => {
       try {
         const hostname = window.location.hostname;
+        console.log('[Providers] Loading tenant for hostname:', hostname);
+
         const tenantId = getTenantFromHostname(hostname);
+        console.log('[Providers] Tenant ID:', tenantId);
 
         if (tenantId) {
+          console.log('[Providers] Fetching tenant config for:', tenantId);
           const tenantConfig = await getTenantConfig(tenantId);
+
           if (tenantConfig) {
+            console.log('[Providers] Tenant config loaded successfully:', tenantConfig.branding.companyName);
             setTenant(tenantConfig);
 
             // Apply theme colors
@@ -45,10 +51,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
               link.href = tenantConfig.branding.faviconUrl;
               document.getElementsByTagName('head')[0].appendChild(link);
             }
+          } else {
+            console.error('[Providers] No tenant config found for:', tenantId);
           }
+        } else {
+          console.error('[Providers] Could not determine tenant ID from hostname:', hostname);
         }
       } catch (error) {
-        console.error('Error loading tenant configuration:', error);
+        console.error('[Providers] Error loading tenant configuration:', error);
+        if (error instanceof Error) {
+          console.error('[Providers] Error message:', error.message);
+          console.error('[Providers] Error stack:', error.stack);
+        }
       } finally {
         setLoading(false);
       }

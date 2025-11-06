@@ -1,0 +1,147 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getTenantId() {
+      return request.auth.token.tenantId;
+    }
+
+    function hasPermission(permission) {
+      return isAuthenticated() &&
+             permission in request.auth.token.permissions;
+    }
+
+    function belongsToTenant(tenantId) {
+      return isAuthenticated() && getTenantId() == tenantId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function isManagerOrAdmin() {
+      return isAuthenticated() &&
+             (request.auth.token.role == 'admin' || request.auth.token.role == 'manager');
+    }
+
+    // Tenant collection - only accessible by platform admins
+    match /tenants/{tenantId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if false; // Only via admin SDK
+
+      // Tenant configuration
+      match /config/{configId} {
+        allow read: if belongsToTenant(tenantId);
+        allow write: if belongsToTenant(tenantId) && isAdmin();
+      }
+    }
+
+    // Users collection
+    match /tenants/{tenantId}/users/{userId} {
+      allow read: if belongsToTenant(tenantId);
+      allow create: if belongsToTenant(tenantId) && isManagerOrAdmin();
+      allow update: if belongsToTenant(tenantId) &&
+                      (request.auth.uid == userId || isManagerOrAdmin());
+      allow delete: if belongsToTenant(tenantId) && isAdmin();
+    }
+
+    // Customers collection
+    match /tenants/{tenantId}/customers/{customerId} {
+      allow read: if belongsToTenant(tenantId) && hasPermission('view_customers');
+      allow create: if belongsToTenant(tenantId) && hasPermission('edit_customers');
+      allow update: if belongsToTenant(tenantId) && hasPermission('edit_customers');
+      allow delete: if belongsToTenant(tenantId) && hasPermission('delete_customers');
+    }
+
+    // Leads collection
+    match /tenants/{tenantId}/leads/{leadId} {
+      allow read: if belongsToTenant(tenantId) && hasPermission('view_leads');
+      allow create: if belongsToTenant(tenantId) && hasPermission('edit_leads');
+      allow update: if belongsToTenant(tenantId) && hasPermission('edit_leads');
+      allow delete: if belongsToTenant(tenantId) && hasPermission('delete_leads');
+    }
+
+    // Quotes collection
+    match /tenants/{tenantId}/quotes/{quoteId} {
+      allow read: if belongsToTenant(tenantId) && hasPermission('view_quotes');
+      allow create: if belongsToTenant(tenantId) && hasPermission('create_quotes');
+      allow update: if belongsToTenant(tenantId) && hasPermission('edit_quotes');
+      allow delete: if belongsToTenant(tenantId) && hasPermission('delete_quotes');
+    }
+
+    // Jobs collection
+    match /tenants/{tenantId}/jobs/{jobId} {
+      allow read: if belongsToTenant(tenantId) && hasPermission('view_jobs');
+      allow create: if belongsToTenant(tenantId) && hasPermission('create_jobs');
+      allow update: if belongsToTenant(tenantId) && hasPermission('edit_jobs');
+      allow delete: if belongsToTenant(tenantId) && hasPermission('delete_jobs');
+    }
+
+    // Invoices collection
+    match /tenants/{tenantId}/invoices/{invoiceId} {
+      allow read: if belongsToTenant(tenantId) && hasPermission('view_invoices');
+      allow create: if belongsToTenant(tenantId) && hasPermission('create_invoices');
+      allow update: if belongsToTenant(tenantId) && hasPermission('edit_invoices');
+      allow delete: if belongsToTenant(tenantId) && hasPermission('delete_invoices');
+    }
+
+    // Conversations and Messages
+    match /tenants/{tenantId}/conversations/{conversationId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId);
+
+      match /messages/{messageId} {
+        allow read: if belongsToTenant(tenantId);
+        allow write: if belongsToTenant(tenantId);
+      }
+    }
+
+    // Teams collection
+    match /tenants/{tenantId}/teams/{teamId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId) && isManagerOrAdmin();
+    }
+
+    // Equipment collection
+    match /tenants/{tenantId}/equipment/{equipmentId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId) && isManagerOrAdmin();
+    }
+
+    // Templates collection
+    match /tenants/{tenantId}/templates/{templateId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId);
+    }
+
+    // Automation workflows
+    match /tenants/{tenantId}/automations/{automationId} {
+      allow read: if belongsToTenant(tenantId);
+      allow write: if belongsToTenant(tenantId) && isManagerOrAdmin();
+    }
+
+    // Activity logs
+    match /tenants/{tenantId}/activities/{activityId} {
+      allow read: if belongsToTenant(tenantId);
+      allow create: if belongsToTenant(tenantId);
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    // Customer portal access (special rules for customers)
+    match /tenants/{tenantId}/customer_portal/{customerId} {
+      allow read: if request.auth.token.customerId == customerId;
+      allow write: if request.auth.token.customerId == customerId;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

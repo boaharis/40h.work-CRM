@@ -44,10 +44,11 @@ service cloud.firestore {
 
     // Users collection
     match /tenants/{tenantId}/users/{userId} {
-      allow read: if belongsToTenant(tenantId);
-      allow create: if belongsToTenant(tenantId) && isManagerOrAdmin();
-      allow update: if belongsToTenant(tenantId) &&
-                      (request.auth.uid == userId || isManagerOrAdmin());
+      // Allow users to read their own document
+      allow read: if isAuthenticated() && (request.auth.uid == userId || belongsToTenant(tenantId));
+      // Allow authenticated users to create their own user document (for first-time sign up)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || (belongsToTenant(tenantId) && isManagerOrAdmin()));
       allow delete: if belongsToTenant(tenantId) && isAdmin();
     }
 

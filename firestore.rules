@@ -30,14 +30,14 @@ service cloud.firestore {
              (request.auth.token.role == 'admin' || request.auth.token.role == 'manager');
     }
 
-    // Tenant collection - only accessible by platform admins
+    // Tenant collection - allow public read for login page, write only via admin SDK
     match /tenants/{tenantId} {
-      allow read: if belongsToTenant(tenantId);
+      allow read: if true; // Allow public read for tenant config on login page
       allow write: if false; // Only via admin SDK
 
       // Tenant configuration
       match /config/{configId} {
-        allow read: if belongsToTenant(tenantId);
+        allow read: if true; // Allow public read for tenant config
         allow write: if belongsToTenant(tenantId) && isAdmin();
       }
     }

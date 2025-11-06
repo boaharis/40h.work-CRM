@@ -59,17 +59,20 @@ export const signUpWithEmail = async (
 
   await setDoc(doc(db, `tenants/${tenantId}/users`, userCredential.user.uid), userData);
 
-  // Set custom claims via API
-  await fetch('/api/auth/set-claims', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  // Set custom claims via Cloud Function
+  try {
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const functions = getFunctions();
+    const setCustomClaimsFunc = httpsCallable(functions, 'setCustomClaims');
+    await setCustomClaimsFunc({
       uid: userCredential.user.uid,
       tenantId,
       role: 'sales',
       permissions: userData.permissions,
-    }),
-  });
+    });
+  } catch (error) {
+    console.error('Error setting custom claims:', error);
+  }
 
   return {
     id: userCredential.user.uid,
@@ -111,17 +114,20 @@ export const signInWithGoogle = async (tenantId: string): Promise<User> => {
 
     await setDoc(userDocRef, userData);
 
-    // Set custom claims
-    await fetch('/api/auth/set-claims', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Set custom claims via Cloud Function
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const setCustomClaimsFunc = httpsCallable(functions, 'setCustomClaims');
+      await setCustomClaimsFunc({
         uid: userCredential.user.uid,
         tenantId,
         role: 'sales',
         permissions: userData.permissions,
-      }),
-    });
+      });
+    } catch (error) {
+      console.error('Error setting custom claims:', error);
+    }
 
     return {
       id: userCredential.user.uid,
@@ -188,17 +194,20 @@ export const verifyPhoneCode = async (
 
     await setDoc(userDocRef, userData);
 
-    // Set custom claims
-    await fetch('/api/auth/set-claims', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Set custom claims via Cloud Function
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+      const setCustomClaimsFunc = httpsCallable(functions, 'setCustomClaims');
+      await setCustomClaimsFunc({
         uid: userCredential.user.uid,
         tenantId,
         role: 'sales',
         permissions: userData.permissions,
-      }),
-    });
+      });
+    } catch (error) {
+      console.error('Error setting custom claims:', error);
+    }
 
     return {
       id: userCredential.user.uid,

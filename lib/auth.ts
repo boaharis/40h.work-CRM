@@ -21,9 +21,9 @@ googleProvider.setCustomParameters({
 });
 
 // Sign in with email and password
-export const signInWithEmail = async (email: string, password: string): Promise<User> => {
+export const signInWithEmail = async (email: string, password: string, tenantId: string): Promise<User> => {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  return await getUserData(userCredential.user.uid);
+  return await getUserData(userCredential.user.uid, tenantId);
 };
 
 // Sign up with email and password
@@ -145,7 +145,7 @@ export const signInWithGoogle = async (tenantId: string): Promise<User> => {
     }
 
     console.log('[Auth] User exists, fetching user data...');
-    return await getUserData(userCredential.user.uid);
+    return await getUserData(userCredential.user.uid, tenantId);
   } catch (error) {
     console.error('[Auth] signInWithGoogle error:', error);
     throw error;
@@ -229,22 +229,24 @@ export const verifyPhoneCode = async (
     } as User;
   }
 
-  return await getUserData(userCredential.user.uid);
+  return await getUserData(userCredential.user.uid, tenantId);
 };
 
 // Get user data from Firestore
-export const getUserData = async (uid: string): Promise<User> => {
-  // First, get the user's tenant ID from their auth token or a lookup collection
-  // For now, we'll need to search across tenants or store a user->tenant mapping
+export const getUserData = async (uid: string, tenantId: string): Promise<User> => {
+  console.log('[Auth] getUserData called for uid:', uid, 'tenantId:', tenantId);
 
-  // This is a placeholder - in production, you'd have a user lookup table
-  const userDoc = await getDoc(doc(db, 'users', uid));
+  const userDocRef = doc(db, `tenants/${tenantId}/users`, uid);
+  const userDoc = await getDoc(userDocRef);
 
   if (!userDoc.exists()) {
+    console.error('[Auth] User document not found at path:', `tenants/${tenantId}/users/${uid}`);
     throw new Error('User not found');
   }
 
   const userData = userDoc.data();
+  console.log('[Auth] User data retrieved successfully:', userData.email);
+
   return {
     id: uid,
     ...userData,

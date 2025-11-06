@@ -15,12 +15,18 @@ export default function LoginPage() {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!tenant) {
+      setError('Tenant configuration not loaded. Please refresh the page.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      console.log('[Login] Email login attempt');
-      await signInWithEmail(email, password);
+      console.log('[Login] Email login attempt for tenant:', tenant.id);
+      await signInWithEmail(email, password, tenant.id);
       console.log('[Login] Email login successful');
       router.push('/dashboard');
     } catch (err: any) {

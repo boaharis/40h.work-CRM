@@ -23,50 +23,67 @@ export const useAuth = () => {
   const { tenant } = useTenantStore();
 
   useEffect(() => {
-    console.log('[useAuth] Setting up auth state listener');
+    console.log('[useAuth] Setting up auth state listener, tenant:', tenant?.id);
+
+    let unsubscribeUser: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       console.log('[useAuth] Auth state changed, user:', firebaseUser?.email);
 
       if (firebaseUser) {
-        // Get custom claims
-        const claims = await getUserClaims();
-        console.log('[useAuth] Custom claims:', claims);
+        try {
+          // Get custom claims
+          const claims = await getUserClaims();
+          console.log('[useAuth] Custom claims:', claims);
 
-        // Determine tenantId - try claims first, then fall back to tenant store
-        let tenantId = claims?.tenantId || tenant?.id;
-        console.log('[useAuth] Tenant ID:', tenantId);
+          // Determine tenantId - try claims first, then fall back to tenant store
+          let tenantId = claims?.tenantId || tenant?.id;
+          console.log('[useAuth] Tenant ID from claims/store:', tenantId);
 
-        // If no tenantId from claims or store, try to find user in any tenant (for development)
-        if (!tenantId) {
-          console.log('[useAuth] No tenantId found, searching for user across tenants...');
-          // This is a fallback - in production, always use claims or tenant store
-          // For now, default to 'demo' tenant
-          tenantId = 'demo';
-        }
+          // If no tenantId from claims or store, try to find user in any tenant (for development)
+          if (!tenantId) {
+            console.log('[useAuth] No tenantId found, defaulting to demo tenant');
+            // This is a fallback - in production, always use claims or tenant store
+            // For now, default to 'demo' tenant
+            tenantId = 'demo';
+          }
 
-        if (tenantId) {
+          console.log('[useAuth] Final tenant ID:', tenantId);
           console.log('[useAuth] Subscribing to user document at: tenants/' + tenantId + '/users/' + firebaseUser.uid);
+
           const userDocRef = doc(db, `tenants/${tenantId}/users`, firebaseUser.uid);
 
-          const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-            console.log('[useAuth] User document snapshot, exists:', doc.exists());
+          unsubscribeUser = onSnapshot(
+            userDocRef,
+            (doc) => {
+              console.log('[useAuth] User document snapshot received, exists:', doc.exists());
 
-            if (doc.exists()) {
-              const userData = {
-                id: doc.id,
-                ...doc.data(),
-              } as User;
+              if (doc.exists()) {
+                const userData = {
+                  id: doc.id,
+                  ...doc.data(),
+                } as User;
 
-              console.log('[useAuth] User data loaded:', userData.email);
+                console.log('[useAuth] User data loaded successfully:', userData.email);
 
-              setAuthState({
-                user: userData,
-                firebaseUser,
-                loading: false,
-                claims: claims || { tenantId, role: userData.role, permissions: userData.permissions },
-              });
-            } else {
-              console.error('[useAuth] User document not found');
+                setAuthState({
+                  user: userData,
+                  firebaseUser,
+                  loading: false,
+                  claims: claims || { tenantId, role: userData.role, permissions: userData.permissions },
+                });
+              } else {
+                console.error('[useAuth] User document not found at path');
+                setAuthState({
+                  user: null,
+                  firebaseUser: null,
+                  loading: false,
+                  claims: null,
+                });
+              }
+            },
+            (error) => {
+              console.error('[useAuth] Error listening to user document:', error);
               setAuthState({
                 user: null,
                 firebaseUser: null,
@@ -74,22 +91,9 @@ export const useAuth = () => {
                 claims: null,
               });
             }
-          }, (error) => {
-            console.error('[useAuth] Error listening to user document:', error);
-            setAuthState({
-              user: null,
-              firebaseUser: null,
-              loading: false,
-              claims: null,
-            });
-          });
-
-          return () => {
-            console.log('[useAuth] Unsubscribing from user document');
-            unsubscribeUser();
-          };
-        } else {
-          console.error('[useAuth] Could not determine tenantId');
+          );
+        } catch (error) {
+          console.error('[useAuth] Error in auth state handler:', error);
           setAuthState({
             user: null,
             firebaseUser: null,
@@ -111,8 +115,12 @@ export const useAuth = () => {
     return () => {
       console.log('[useAuth] Cleaning up auth state listener');
       unsubscribe();
+      if (unsubscribeUser) {
+        console.log('[useAuth] Cleaning up user document listener');
+        unsubscribeUser();
+      }
     };
-  }, [tenant]);
+  }, [tenant?.id]);
 
   return authState;
 };

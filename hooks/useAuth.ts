@@ -20,10 +20,9 @@ export const useAuth = () => {
     loading: true,
     claims: null,
   });
-  const { tenant } = useTenantStore();
 
   useEffect(() => {
-    console.log('[useAuth] Setting up auth state listener, tenant:', tenant?.id);
+    console.log('[useAuth] Setting up auth state listener');
 
     let unsubscribeUser: (() => void) | null = null;
 
@@ -36,19 +35,10 @@ export const useAuth = () => {
           const claims = await getUserClaims();
           console.log('[useAuth] Custom claims:', claims);
 
-          // Determine tenantId - try claims first, then fall back to tenant store
-          let tenantId = claims?.tenantId || tenant?.id;
-          console.log('[useAuth] Tenant ID from claims/store:', tenantId);
+          // Determine tenantId - try claims first, then fall back to demo
+          let tenantId = claims?.tenantId || 'demo';
+          console.log('[useAuth] Using tenant ID:', tenantId);
 
-          // If no tenantId from claims or store, try to find user in any tenant (for development)
-          if (!tenantId) {
-            console.log('[useAuth] No tenantId found, defaulting to demo tenant');
-            // This is a fallback - in production, always use claims or tenant store
-            // For now, default to 'demo' tenant
-            tenantId = 'demo';
-          }
-
-          console.log('[useAuth] Final tenant ID:', tenantId);
           console.log('[useAuth] Subscribing to user document at: tenants/' + tenantId + '/users/' + firebaseUser.uid);
 
           const userDocRef = doc(db, `tenants/${tenantId}/users`, firebaseUser.uid);
@@ -120,7 +110,7 @@ export const useAuth = () => {
         unsubscribeUser();
       }
     };
-  }, [tenant?.id]);
+  }, []); // Empty dependency array - only run once on mount
 
   return authState;
 };
